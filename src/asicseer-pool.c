@@ -1570,14 +1570,13 @@ static void parse_proxies(pool_t *ckp, const json_t *arr_val, const int arr_size
         // downstream code assumes all these pointers are valid
         // and never checks for NULL, hence segfaults.
         assert_json_get_ok(
-            json_get_configstring(&ckp->proxyurl[i], val, "url"),
-            "proxies", "url" );
+            json_get_configstring(&ckp->proxyurl[i], val, "url"), "proxies", "url" );
         assert_json_get_ok(
-            json_get_configstring(&ckp->proxyauth[i], val, "auth"),
-            "proxies", "auth" );
+            json_get_configstring(&ckp->proxyauth[i], val, "auth"), "proxies", "auth" );
         assert_json_get_ok(
-            json_get_configstring(&ckp->proxypass[i], val, "pass"),
-            "proxies", "pass" );
+            //json_get_configstring(&ckp->proxypass[i], val, "pass"), "proxies", "pass" );
+            if (!json_get_string(&ckp->proxypass[i], val, "pass"), "proxies", "pass" )
+			ckp->proxypass[i] = strdup("");
     }
 }
 
