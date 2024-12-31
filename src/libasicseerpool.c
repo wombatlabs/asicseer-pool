@@ -2129,7 +2129,7 @@ double diff_from_target(const uchar * const target)
 }
 
 /* Return a difficulty from a binary big endian target */
-double diff_from_betarget(uchar *target)
+double diff_from_betarget(const uchar * const target)
 {
 	double dcut64;
 

@@ -1357,6 +1357,27 @@ out:
     return ret;
 }
 
+static bool _json_get_string(char **store, const json_t *entry, const char *res)
+{
+	bool ret = false;
+	const char *buf;
+	*store = NULL;
+	if (!entry || json_is_null(entry)) {
+		LOGDEBUG("Json did not find entry %s", res);
+		goto out;
+	}
+	if (!json_is_string(entry)) {
+		LOGWARNING("Json entry %s is not a string", res);
+		goto out;
+	}
+	buf = json_string_value(entry);
+	LOGDEBUG("Json found entry %s: %s", res, buf);
+	*store = strdup(buf);
+	ret = true;
+out:
+	return ret;
+}
+
 bool json_get_string(char **store, const json_t *val, const char *res)
 {
     return my_json_get_string(store, json_object_get(val, res), res);
