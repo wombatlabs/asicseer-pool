@@ -2027,7 +2027,7 @@ static void orphan_block(sdata_t *sdata, json_t *val)
 {
     double shares;
 
-    json_get_int64(&shares, val, "shares");
+    json_get_double(&shares, val, "shares");
 
     mutex_lock(&sdata->stats_lock);
     sdata->stats.accounted_diff_shares += shares;
