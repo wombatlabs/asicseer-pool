@@ -2103,7 +2103,7 @@ double le256todouble(const uchar * const target)
 }
 
 /* Return a difficulty from a binary target */
-double diff_from_target(uchar *target)
+double diff_from_target(const uchar * const target)
 {
 	double dcut64;
 
