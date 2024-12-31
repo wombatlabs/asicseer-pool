@@ -266,7 +266,7 @@ struct pool_instance {
     /* Difficulty settings */
     double mindiff; // Default 1.0
     double startdiff; // Default 42.0
-    int64_t maxdiff; // No default
+    double maxdiff; // No default
 
     const mindiff_override_t *mindiff_overrides; // Taken from top-level "mindiff_overrides" : { ... } in config.
     size_t n_mindiff_overrides; // The number of mindiff_override in the above array. Will be 0 if array is NULL.
