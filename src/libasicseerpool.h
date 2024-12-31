@@ -598,6 +598,7 @@ char *http_base64(const char *src);
 /* Does no checksum checks but returns false if the characters in b58 source are invalid, or if b58 is > 35 characters, true otherwise. */
 bool b58tobin_safe(uchar *b58bin, const char *b58);
 int safecmp(const char *a, const char *b);
+int safencmp(const char *a, const char *b, size_t len);
 int safecasecmp(const char *a, const char *b, int len); // pass len < 0 to compare all
 bool cmdmatch(const char *buf, const char *cmd);
 

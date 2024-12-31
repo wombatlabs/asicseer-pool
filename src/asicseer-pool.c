@@ -1362,6 +1362,23 @@ bool json_get_string(char **store, const json_t *val, const char *res)
     return my_json_get_string(store, json_object_get(val, res), res);
 }
 
+/* Used when there must be a valid string */
+static void json_get_configstring(char **store, const json_t *val, const char *res)
+{
+	bool ret = _json_get_string(store, json_object_get(val, res), res);
+
+	/* Either cookie or basic auth must be defined */
+	if (!ret) {
+		if (!strcmp(res, "auth") || !strcmp(res, "pass"))
+			ret = json_is_string(json_object_get(val, "cookie"));
+	}
+
+	if (!ret) {
+		LOGEMERG("Invalid config string or missing object for %s", res);
+		exit(1);
+	}
+}
+
 bool json_get_int64(int64_t *store, const json_t *val, const char *res)
 {
     json_t *entry = json_object_get(val, res);
@@ -1496,9 +1513,9 @@ static void parse_btcds(pool_t *ckp, const json_t *arr_val, const int arr_size)
     ckp->btcdzmqblock = ckzalloc(sizeof(char *) * arr_size);
     for (i = 0; i < arr_size; i++) {
         val = json_array_get(arr_val, i);
-        json_get_string(&ckp->btcdurl[i], val, "url");
-        json_get_string(&ckp->btcdauth[i], val, "auth");
-        json_get_string(&ckp->btcdpass[i], val, "pass");
+        json_get_configstring(&ckp->btcdurl[i], val, "url");
+        json_get_configstring(&ckp->btcdauth[i], val, "auth");
+        json_get_configstring(&ckp->btcdpass[i], val, "pass");
         json_get_bool(&ckp->btcdnotify[i], val, "notify");
         char *zmq = NULL;
         // "zmq", "zmqblock", or "zmqpubhashblock" are equivalent
@@ -1532,15 +1549,44 @@ static void parse_proxies(pool_t *ckp, const json_t *arr_val, const int arr_size
         // downstream code assumes all these pointers are valid
         // and never checks for NULL, hence segfaults.
         assert_json_get_ok(
-            json_get_string(&ckp->proxyurl[i], val, "url"),
+            json_get_configstring(&ckp->proxyurl[i], val, "url"),
             "proxies", "url" );
         assert_json_get_ok(
-            json_get_string(&ckp->proxyauth[i], val, "auth"),
+            json_get_configstring(&ckp->proxyauth[i], val, "auth"),
             "proxies", "auth" );
         assert_json_get_ok(
-            json_get_string(&ckp->proxypass[i], val, "pass"),
+            json_get_configstring(&ckp->proxypass[i], val, "pass"),
             "proxies", "pass" );
     }
+}
+
+static bool parse_useragents(ckpool_t *ckp, const json_t *arr_val)
+{
+	bool ret = false;
+	int arr_size, i;
+
+	if (!arr_val)
+		goto out;
+	if (!json_is_array(arr_val)) {
+		LOGINFO("Unable to parse useragent entries as an array");
+		goto out;
+	}
+	arr_size = json_array_size(arr_val);
+	if (!arr_size) {
+		LOGWARNING("Useragent array empty");
+		goto out;
+	}
+	ckp->useragents = arr_size;
+	ckp->useragent = ckalloc(sizeof(char *) * arr_size);
+	for (i = 0; i < arr_size; i++) {
+		json_t *val = json_array_get(arr_val, i);
+
+		if (!_json_get_string(&ckp->useragent[i], val, "useragent"))
+			LOGWARNING("Invalid useragent entry number %d", i);
+	}
+	ret = true;
+out:
+	return ret;
 }
 
 static bool parse_serverurls(pool_t *ckp, const json_t *arr_val)
@@ -1793,7 +1839,7 @@ static void parse_config(pool_t *ckp)
 {
     json_t *json_conf, *arr_val;
     json_error_t err_val;
-    char *url, *vmask;
+    char *url, *vmask, *user_agent;
     int arr_size;
 
     json_conf = json_load_file(ckp->config, JSON_DISABLE_EOF_CHECK, &err_val);
@@ -1836,6 +1882,21 @@ static void parse_config(pool_t *ckp)
     else
         ckp->version_mask = 0x1fffe000;
     /* Look for an array first and then a single entry */
+    arr_val = json_object_get(json_conf, "useragent");
+	if (!parse_useragents(ckp, arr_val)) {
+		if (json_get_string(&user_agent, json_conf, "useragent")) {
+			ckp->useragent = ckalloc(sizeof(char *));
+			ckp->useragent[0] = user_agent;
+			ckp->useragents = 1;
+		}
+		/* If no user agent has been set, use "NerdMinerV2" as default */
+		else {
+			ckp->useragent = ckalloc(sizeof(char *));
+			ckp->useragent[0] = strdup("NerdMinerV2");
+			ckp->useragents = 1;
+		}
+	}
+	/* Look for an array first and then a single entry */
     arr_val = json_object_get(json_conf, "serverurl");
     if (!parse_serverurls(ckp, arr_val)) {
         if (json_get_string(&url, json_conf, "serverurl")) {
@@ -1849,8 +1910,8 @@ static void parse_config(pool_t *ckp)
     arr_val = json_object_get(json_conf, "trusted");
     parse_trusted(ckp, arr_val);
     json_get_string(&ckp->upstream, json_conf, "upstream");
-    json_get_int64(&ckp->mindiff, json_conf, "mindiff");
-    json_get_int64(&ckp->startdiff, json_conf, "startdiff");
+    json_get_double(&ckp->mindiff, json_conf, "mindiff");
+	json_get_double(&ckp->startdiff, json_conf, "startdiff");
     json_get_int64(&ckp->maxdiff, json_conf, "maxdiff");
     {
         // parse mindiff_overrides -- this must be called after mindiff and maxdiff above are already set up
@@ -2262,9 +2323,9 @@ int main(int argc, char **argv)
     if (!ckp.update_interval)
         ckp.update_interval = 30;
     if (!ckp.mindiff)
-        ckp.mindiff = 1;
+        ckp.mindiff = 1.0;
     if (!ckp.startdiff)
-        ckp.startdiff = 42;
+        ckp.startdiff = 42.0;
     if (!ckp.logdir)
         ckp.logdir = strdup("logs");
     if (!ckp.serverurls)

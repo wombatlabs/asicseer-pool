@@ -264,8 +264,8 @@ struct pool_instance {
     int nonce2length; // Extranonce2 length
 
     /* Difficulty settings */
-    int64_t mindiff; // Default 1
-    int64_t startdiff; // Default 42
+    double mindiff; // Default 1.0
+    double startdiff; // Default 42.0
     int64_t maxdiff; // No default
 
     const mindiff_override_t *mindiff_overrides; // Taken from top-level "mindiff_overrides" : { ... } in config.
@@ -313,6 +313,10 @@ struct pool_instance {
     int update_interval; // Seconds between stratum updates
 
     uint32_t version_mask; // Bits which set to true means allow miner to modify those bits
+
+    /* Allowed user agents */
+	char **useragent; // Array of allowed user agents
+	int useragents; // Number of user agent entries
 
     /* Proxy options */
     int proxies;

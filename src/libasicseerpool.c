@@ -1574,6 +1574,30 @@ int safecmp(const char *a, const char *b)
     return (strcmp(a, b));
 }
 
+
+/* Does a safe substring comparison tolerating zero length and NULL strings */
+int safencmp(const char *a, const char *b, size_t len)
+{
+	int lena, lenb;
+
+	if (unlikely(!a || !b)) {
+		if (a != b)
+			return -1;
+		return 0;
+	}
+	if (unlikely(!len))
+		return -1;
+
+	lena = strlen(a);
+	lenb = strlen(b);
+	if (unlikely(!lena || !lenb)) {
+		if (lena != lenb)
+			return -1;
+		return 0;
+	}
+	return (strncmp(a, b, len));
+}
+
 /* Does a safe strcasecmp or strncasecmp comparison tolerating zero length and NULL strings.
    Pass len < 0 to compare all, or len >= 0 to compare first len bytes. */
 int safecasecmp(const char *a, const char *b, int len)
@@ -1991,6 +2015,9 @@ double sane_tdiff(tv_t *end, tv_t *start)
  * associated suitable for Mega, Giga etc. Buf array needs to be long enough */
 void suffix_string(double val, char *buf, size_t bufsiz, int sigdigits)
 {
+    const double nano = 0.000000001;
+	const double micro = 0.000001;
+	const double milli = 0.001;
     const double kilo = 1000;
     const double mega = 1000000;
     const double giga = 1000000000;
@@ -2024,6 +2051,17 @@ void suffix_string(double val, char *buf, size_t bufsiz, int sigdigits)
     } else if (val >= kilo) {
         dval = val / kilo;
         strcpy(suffix, "K");
+    } else if (val >= 1) {
+		dval = val;
+	} else if (val >= milli) {
+		dval = val / milli;
+		strcpy(suffix, "m");
+	} else if (val >= micro) {
+		dval = val / micro;
+		strcpy(suffix, "u");
+	} else if (val >= nano) {
+		dval = val / nano;
+		strcpy(suffix, "n");
     } else {
         dval = val;
         decimal = false;
@@ -2065,15 +2103,25 @@ double le256todouble(const uchar * const target)
 }
 
 /* Return a difficulty from a binary target */
-double diff_from_target(const uchar *target)
+double diff_from_target(uchar *target)
 {
-    double d64, dcut64;
+	double dcut64;
 
-    d64 = truediffone;
-    dcut64 = le256todouble(target);
-    if (unlikely(dcut64 <= 0.0))
-        dcut64 = 1.;
-    return d64 / dcut64;
+	dcut64 = le256todouble(target);
+	if (unlikely(dcut64 <= 0))
+		dcut64 = 1;
+	return truediffone / dcut64;
+}
+
+/* Return a difficulty from a binary big endian target */
+double diff_from_betarget(uchar *target)
+{
+	double dcut64;
+
+	dcut64 = be256todouble(target);
+	if (unlikely(dcut64 <= 0))
+		dcut64 = 1;
+	return truediffone / dcut64;
 }
 
 /* Return the network difficulty from the block header which is in packed form,

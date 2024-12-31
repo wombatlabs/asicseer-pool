@@ -27,7 +27,7 @@
 struct notify_instance {
     /* Hash table data */
     UT_hash_handle hh;
-    int id;
+    int64_t id64;
 
     char prevhash[68];
     json_t *jobid;
@@ -50,7 +50,7 @@ typedef struct proxy_instance proxy_instance_t;
 
 struct share_msg {
     UT_hash_handle hh;
-    int64_t id; // Our own id for submitting upstream
+    int64_t id64; // Our own id for submitting upstream
 
     int64_t client_id;
     time_t submit_time;
@@ -165,7 +165,7 @@ struct generator_data {
     int64_t proxies_generated;
     int64_t subproxies_generated;
 
-    int proxy_notify_id;	// Globally increasing notify id
+    int64_t proxy_notify_id;	// Globally increasing notify id
     server_instance_t *si;	/* Current server instance */
     pthread_t pth_uprecv;	// User proxy receive thread
     pthread_t pth_psend;	// Combined proxy send thread
@@ -1018,8 +1018,8 @@ static bool parse_notify(pool_t *ckp, proxy_instance_t *proxi, json_t *val)
 
     /* Add the notify instance to the parent proxy list, not the subproxy */
     mutex_lock(&gdata->notify_lock);
-    ni->id = gdata->proxy_notify_id++;
-    HASH_ADD_INT(gdata->notify_instances, id, ni);
+    ni->id64 = gdata->proxy_notify_id++;
+	HASH_ADD_I64(gdata->notify_instances, id64, ni);
     mutex_unlock(&gdata->notify_lock);
 
     send_notify(ckp, proxi, ni);
@@ -1318,7 +1318,7 @@ static void send_notify(pool_t *ckp, proxy_instance_t *proxi, notify_instance_t 
     /* Use our own jobid instead of the server's one for easy lookup */
     JSON_CPACK(json_msg, "{sIsisisssisssssosssssssb}",
                  "proxy", proxy->id, "subproxy", proxi->subid,
-                 "jobid", ni->id, "prevhash", ni->prevhash, "coinb1len", ni->coinb1len,
+                 "jobid", ni->id64, "prevhash", ni->prevhash, "coinb1len", ni->coinb1len,
                  "coinbase1", ni->coinbase1, "coinbase2", ni->coinbase2,
                  "merklehash", merkle_arr, "bbversion", ni->bbversion,
                  "nbit", ni->nbit, "ntime", ni->ntime,
@@ -1603,14 +1603,14 @@ static int64_t add_share(gdata_t *gdata, const int64_t client_id, const double d
 
     /* Add new share entry to the share hashtable. Age old shares */
     mutex_lock(&gdata->share_lock);
-    ret = share->id = gdata->share_id++;
-    HASH_ADD_I64(gdata->shares, id, share);
-    HASH_ITER(hh, gdata->shares, share, tmpshare) {
-        if (share->submit_time < now - 120) {
-            HASH_DEL(gdata->shares, share);
-            dealloc(share);
-        }
-    }
+    ret = share->id64 = gdata->share_id++;
+	HASH_ADD_I64(gdata->shares, id64, share);
+	HASH_ITER(hh, gdata->shares, share, tmpshare) {
+		if (share->submit_time < now - 120) {
+			HASH_DEL(gdata->shares, share);
+			free(share);
+		}
+	}
     mutex_unlock(&gdata->share_lock);
 
     return ret;
@@ -1754,8 +1754,10 @@ static int parse_share(gdata_t *gdata, proxy_instance_t *proxi, const char *buf)
 
     mutex_lock(&gdata->share_lock);
     HASH_FIND_I64(gdata->shares, &id, share);
-    if (share)
-        HASH_DEL(gdata->shares, share);
+    if (share) {
+		HASH_DEL(gdata->shares, share);
+		free(share);
+	}
     mutex_unlock(&gdata->share_lock);
 
     if (!share) {
