@@ -6906,7 +6906,7 @@ static void add_submit(pool_t *ckp, stratum_instance_t *client, double sdiff,
 
     client->ssdc = 0;
 
-    LOGINFO("Client %s biased dsps %.2f dsps %.2f drr %.2f adjust diff from %"lf" to: %"lf" ",
+    LOGINFO("Client %s biased dsps %.2f dsps %.2f drr %.2f adjust diff from %lf to: %lf ",
         client->identity, dsps, client->dsps5, drr, client->diff, optimal);
 
     copy_tv(&client->ldc, &now_t);
